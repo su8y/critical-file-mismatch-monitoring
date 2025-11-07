@@ -140,6 +140,7 @@ void initLogger(std::string application)
 {
 	auto console_sink = std::make_shared<spdlog::sinks::stdout_color_sink_mt>();
 	console_sink->set_pattern("[%Y-%m-%d %H:%M:%S.%e] [%^%l%$] %v");
+	console_sink->set_level(spdlog::level::debug);
 
 	auto file_sink = std::make_shared<spdlog::sinks::daily_file_sink_mt>(server_logfile, // 기본 파일 이름
 																		 0, 0, // 0시 0분마다 회전
@@ -147,6 +148,7 @@ void initLogger(std::string application)
 																		 7 // 최대 7일치 보관
 	);
 	file_sink->set_pattern("[%Y-%m-%d %H:%M:%S.%e] [%n] [%l] %v");
+	file_sink->set_level(spdlog::level::info);
 
 	// === 여러 sink 결합 ===
 	std::vector<spdlog::sink_ptr> sinks{console_sink, file_sink};
