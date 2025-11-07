@@ -1,0 +1,24 @@
+{
+  "GIS": {
+    "SystemParameters": {
+      "OSS_ADDR":"75.154.130.232",
+      "OSS_ADDR2":"75.154.130.233",
+      "sipDomain": "export13.jbt.com",
+      "CpuParam": {
+        "CPU_CRITICAL": 90,
+        "CPU_MAJOR": 80,
+        "CPU_MINOR": 70
+      },
+      "MemParam": {
+        "MEM_CRITICAL": 95,
+        "MEM_MAJOR": 90,
+        "MEM_MINOR": 85
+      },
+      "DskParam": {
+        "DSK_CRITICAL": 90,
+        "DSK_MAJOR": 80,
+        "DSK_MINOR": 70
+      }
+    }
+  }
+}

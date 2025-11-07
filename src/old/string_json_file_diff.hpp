@@ -3,6 +3,7 @@
 #include <cstring>
 #include <stdexcept>
 #include <string>
+#include <sstream>
 
 const std::string& DIFF_TOOLS = "/home/gis/MM/bin/flatten_json_diff";
 

@@ -2,10 +2,11 @@
 #define MISMATCHMONITOR_UTILS_H
 
 #include <chrono>
+#include <fstream>
 #include <iomanip>
 #include <random>
-#include <string>
 #include <sstream>
+#include <string>
 
 class Utils {
 public:
@@ -51,6 +52,30 @@ public:
 		std::stringstream ss;
 		ss << std::put_time(std::localtime(&now_c), format);
 		return ss.str();
+	}
+
+
+	/*
+	 * checksum
+	 */
+	static std::string calculate_xor_checksum(const std::string& filePath) {
+		std::ifstream file(filePath, std::ios::binary);
+		if (!file) {
+			return "";
+		}
+
+		char buffer[1024];
+		unsigned long checksum = 0;
+		while (file.read(buffer, sizeof(buffer))) {
+			for (int i = 0; i < file.gcount(); ++i) {
+				checksum ^= buffer[i];
+			}
+		}
+		for (int i = 0; i < file.gcount(); ++i) {
+			checksum ^= buffer[i];
+		}
+
+		return std::to_string(checksum);
 	}
 };
 

@@ -1,0 +1,20 @@
+{
+  "jobs": [
+    {
+      "type": "checksum",
+      "target": "./list.cfg",
+      "target_type": "file",
+      "target_reference": "./list_ref.cfg",
+      "msg": "CriticalFileMismatch",
+      "cron": "*/1 * * * *"
+    },
+    {
+      "type": "json",
+      "target": "./file_1.json",
+      "target_type": "listfile",
+      "target_reference": "./file_1_ref.json",
+      "msg": "GoldenParameterMismatch",
+      "cron": "*/1 * * * *"
+    }
+  ]
+}

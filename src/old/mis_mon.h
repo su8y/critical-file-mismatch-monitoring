@@ -10,6 +10,7 @@ using namespace std;
 #include <string>
 #include <thread>
 #include <unistd.h>
+#include <vector>
 
 // #include "support/utils.hpp"
 #include "version.h"
