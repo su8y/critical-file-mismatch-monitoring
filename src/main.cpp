@@ -1,5 +1,5 @@
 #include "md5sum_diff.hpp"
-#include <cstring>
+#include "utils/CommonUtil.hpp"
 #include <fstream>
 #include <iostream>
 #include <memory>
@@ -40,7 +40,8 @@ typedef struct alarm_status {
   std::string alarmContent;
 } alarm_status;
 
-NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(alarm_status, alarmId, alarmLevel, alarmContent)
+NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(alarm_status, alarmId, alarmLevel,
+                                   alarmContent)
 
 const std::string alarm_type = "F";
 const std::string alarm_severity_major = "MAJOR";
@@ -63,6 +64,38 @@ typedef struct sentinel {
 
 std::vector<sentinel> jobs;
 
+void save_alarm_status_map(std::string backupfile) {
+  json j = json::object(); // 기본적으로 빈 JSON 객체 생성
+
+  for (const auto &[key, value] : alarm_status_map)
+    j[key] = value; // NLOHMANN 매크로 덕분에 자동 직렬화
+  std::ofstream file(backupfile);
+  file << j.dump(4);
+  file.close();
+}
+void load_alarm_status_map(const std::string &backupfile) {
+  std::ifstream file(backupfile);
+  if (!file.is_open()) {
+    spdlog::error("Failed to open file {}", ALARM_STATUS_FILE);
+    return;
+  }
+  nlohmann::json j;
+  file >> j;
+  if (!j.is_object())
+    throw std::runtime_error("Invalid json format");
+
+  for (auto &[key, value] : j.items()) {
+    try {
+      alarm_status status = value.get<alarm_status>();
+      alarm_status_map[key] = status;
+      spdlog::debug(
+          "Load alarm[{}] -> alarmLevel: {}, alarmId: {}, alarmContent: {}",
+          key, status.alarmLevel, status.alarmId, status.alarmContent);
+    } catch (const std::exception &e) {
+      spdlog::error("Failed to parse alarm status file: {}", e.what());
+    }
+  }
+}
 void initAlarm(const std::string metafile, const std::string goldenfile) {
 
   /* SNMP Address Setting*/
@@ -181,8 +214,69 @@ std::string check_file(const sentinel &s) {
   return output;
 }
 
+std::string create_alarm_id() {
+  std::string time = CommonUtil::get_current_timestamp_str();
+  std::string uuid = CommonUtil::generate_uuid_v4();
+  return uuid + "_" + time;
+}
+
+void check_new_alarm(const sentinel &s) {
+  if (alarm_status_map.count(s.checkfile) == 0) {
+    alarm_status_map[s.checkfile] = alarm_status{
+        .alarmId = "", .alarmLevel = alarm_severity_clear, .alarmContent = ""};
+  }
+}
+
+void clear_alarm(const sentinel &s) {
+  check_new_alarm(s);
+
+  std::string new_alarm_id = create_alarm_id();
+  spdlog::info("Alarm cleared for file: {}, prev: {}, current: {}", s.checkfile,
+               alarm_status_map[s.checkfile].alarmId, new_alarm_id);
+
+  alarm_status_map[s.checkfile] = alarm_status{
+      .alarmId = new_alarm_id,
+      .alarmLevel = alarm_severity_clear,
+      .alarmContent = "",
+  };
+  save_alarm_status_map(ALARM_STATUS_FILE);
+}
+
+void update_alarm(const sentinel &s, const std::string &diffResult) {
+  check_new_alarm(s);
+
+  if (alarm_status_map[s.checkfile].alarmLevel == alarm_severity_clear) {
+    std::string time = CommonUtil::get_current_timestamp_str();
+    std::string uuid = CommonUtil::generate_uuid_v4();
+
+    spdlog::warn("new alarm: {}, content: {}", uuid + "_" + time, diffResult);
+    alarm_status_map[s.checkfile] = alarm_status{
+        .alarmId = uuid + "_" + time,
+        .alarmLevel = alarm_severity_major,
+        .alarmContent = diffResult,
+    };
+
+  } else if (alarm_status_map[s.checkfile].alarmLevel == alarm_severity_major &&
+             alarm_status_map[s.checkfile].alarmContent != diffResult) {
+    // 기존 알람이 있지만 내용이 다른 경우
+    std::string time = CommonUtil::get_current_timestamp_str();
+    std::string uuid = CommonUtil::generate_uuid_v4();
+
+    // 알람 발생
+    spdlog::warn("update alarm: {} -> {}, content: {}",
+                 alarm_status_map[s.checkfile].alarmId, uuid + "_" + time,
+                 diffResult);
+    alarm_status_map[s.checkfile] = alarm_status{
+        .alarmId = uuid + "_" + time,
+        .alarmLevel = alarm_severity_major,
+        .alarmContent = diffResult,
+    };
+  }
+  save_alarm_status_map(ALARM_STATUS_FILE);
+}
+
 void sentinel_process(const sentinel &s) {
-  spdlog::debug("Sentinel Process: {} {} {} {} {} {}", s.checkfile, s.reffile,
+  spdlog::trace("Sentinel Process: {} {} {} {} {} {}", s.checkfile, s.reffile,
                 s.file_type, s.compare_type, s.compare_trigger_msg,
                 s.compare_time);
 
@@ -222,48 +316,33 @@ void sentinel_process(const sentinel &s) {
         output << line << ":" << prev_md5sum << "->" << md5sum << std::endl;
       }
     }
-    if (!output.str().empty())
-      spdlog::warn("list file result: {}", output.str());
+
+    // 기 저장된 데이터가 없는 경우 새로 추가
+    if (alarm_status_map.count(s.checkfile) == 0) {
+      alarm_status_map[s.checkfile] =
+          alarm_status{.alarmId = "",
+                       .alarmLevel = alarm_severity_clear,
+                       .alarmContent = ""};
+    }
+
+    if (output.str().empty() &&
+        alarm_status_map[s.checkfile].alarmLevel == alarm_severity_major) {
+      clear_alarm(s);
+    } else if (!output.str().empty()) {
+      update_alarm(s, output.str());
+    }
   } else if (s.file_type == "file") {
     std::string diffResult = check_file(s);
-    /* status 업데이트 한번 올렸으면 다시 올리지 않는다. */
     /* 알람 발생 */
-    if (!diffResult.empty())
-      spdlog::warn("Sentinel Diff Result: {}", diffResult);
-  }
-}
-
-void save_alarm_status_map(std::string backupfile) {
-  json j = json::object(); // 기본적으로 빈 JSON 객체 생성
-
-  for (const auto &[key, value] : alarm_status_map)
-    j[key] = value; // NLOHMANN 매크로 덕분에 자동 직렬화
-  std::ofstream file(backupfile);
-  file << j.dump(4);
-  file.close();
-}
-void load_alarm_status_map() {
-  std::ifstream file(ALARM_STATUS_FILE);
-  if (!file.is_open()) {
-    spdlog::error("Failed to open file {}", ALARM_STATUS_FILE);
-    return;
-  }
-  nlohmann::json j;
-  file >> j;
-  if (!j.is_object())
-    throw std::runtime_error("Invalid json format");
-
-  for (auto &[key, value] : j.items()) {
-    try {
-      alarm_status status = value.get<alarm_status>();
-      alarm_status_map[key] = status;
-      spdlog::debug("Load alarm[{}] -> alarmLevel: {}, alarmId: {}, alarmContent: {}", key,
-                    status.alarmLevel, status.alarmId, status.alarmContent);
-    } catch (const std::exception &e) {
-      spdlog::error("Failed to parse alarm status file: {}", e.what());
+    if (diffResult.empty() &&
+        alarm_status_map[s.checkfile].alarmLevel == alarm_severity_major) {
+      clear_alarm(s);
+    } else if (!diffResult.empty()) {
+      update_alarm(s, diffResult);
     }
   }
 }
+
 
 int main(int argc, char *argv[]) {
   try {
@@ -275,6 +354,7 @@ int main(int argc, char *argv[]) {
     initLogger("sentinel");
     initServer(config_path);
     initAlarm(META_FILE, GOLDEN_FILE);
+    load_alarm_status_map(ALARM_STATUS_FILE);
     printInfo();
 
     while (true) {
