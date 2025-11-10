@@ -35,11 +35,12 @@ std::map<std::string, nlohmann::json> checksum_status; // file-name
 
 #define ALARM_STATUS_FILE "/home/gis/MM/resources/backup_alarm.json"
 typedef struct alarm_status {
-  std::string severity;
-  std::string alarm_id;
+  std::string alarmId;
+  std::string alarmLevel;
+  std::string alarmContent;
 } alarm_status;
 
-NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(alarm_status, severity, alarm_id)
+NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(alarm_status, alarmId, alarmLevel, alarmContent)
 
 const std::string alarm_type = "F";
 const std::string alarm_severity_major = "MAJOR";
@@ -179,6 +180,7 @@ std::string check_file(const sentinel &s) {
     output = compare_md5sum(s.reffile, s.checkfile);
   return output;
 }
+
 void sentinel_process(const sentinel &s) {
   spdlog::debug("Sentinel Process: {} {} {} {} {} {}", s.checkfile, s.reffile,
                 s.file_type, s.compare_type, s.compare_trigger_msg,
@@ -255,8 +257,8 @@ void load_alarm_status_map() {
     try {
       alarm_status status = value.get<alarm_status>();
       alarm_status_map[key] = status;
-      spdlog::debug("Load alarm[{}] -> severity: {}, alarm_id: {}", key,
-                    status.severity, status.alarm_id);
+      spdlog::debug("Load alarm[{}] -> alarmLevel: {}, alarmId: {}, alarmContent: {}", key,
+                    status.alarmLevel, status.alarmId, status.alarmContent);
     } catch (const std::exception &e) {
       spdlog::error("Failed to parse alarm status file: {}", e.what());
     }

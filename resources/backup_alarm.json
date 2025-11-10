@@ -1,5 +1,5 @@
 {
-  "criticalFile": {
+  "./file_1_ref.json": {
     "alarmId": "",
     "alarmContent": "",
     "alarmLevel": ""
