@@ -73,6 +73,7 @@ void save_alarm_status_map(std::string backupfile) {
   file << j.dump(4);
   file.close();
 }
+
 void load_alarm_status_map(const std::string &backupfile) {
   std::ifstream file(backupfile);
   if (!file.is_open()) {
@@ -96,6 +97,7 @@ void load_alarm_status_map(const std::string &backupfile) {
     }
   }
 }
+
 void initAlarm(const std::string metafile, const std::string goldenfile) {
 
   /* SNMP Address Setting*/
@@ -204,7 +206,8 @@ void initLogger(std::string application) {
       spdlog::level::debug); // trace, debug, info, warn, err, critical, off
   spdlog::flush_on(spdlog::level::info);
 }
-/* 모니터링 */
+
+/* 모니터링 (checksum or json)*/
 std::string check_file(const sentinel &s) {
   std::string output;
   if (s.compare_type == "json")
@@ -281,6 +284,7 @@ void sentinel_process(const sentinel &s) {
                 s.compare_time);
 
   if (s.file_type == "listfile") {
+    // FIXME: listfile off 지원 필요
     if (s.compare_type == "json")
       throw std::runtime_error("json type is not supported for listfile");
     if (!std::filesystem::exists(s.reffile)) {
@@ -343,7 +347,6 @@ void sentinel_process(const sentinel &s) {
   }
 }
 
-
 int main(int argc, char *argv[]) {
   try {
     std::string config_path = DEFAULT_CONFIG_PATH;
@@ -351,11 +354,28 @@ int main(int argc, char *argv[]) {
       if (strcmp(argv[1], "--config") == 0)
         config_path = argv[2];
     }
+
     initLogger("sentinel");
     initServer(config_path);
     initAlarm(META_FILE, GOLDEN_FILE);
     load_alarm_status_map(ALARM_STATUS_FILE);
     printInfo();
+
+    if (argc > 4) {
+      if (strcmp(argv[3], "off") == 0) {
+        for (int i = 0; i < jobs.size(); i++){
+          if (jobs[i].checkfile == argv[4]) {
+            std::ifstream src(jobs[i].checkfile);
+            std::ofstream dst(jobs[i].reffile);
+            dst << src.rdbuf();
+            src.close();
+            dst.close();
+            exit(0);
+          }
+        }
+        
+      }
+    }
 
     while (true) {
       for (int i = 0; i < jobs.size(); i++)
