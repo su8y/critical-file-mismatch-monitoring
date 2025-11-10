@@ -64,6 +64,15 @@ typedef struct sentinel {
 
 std::vector<sentinel> jobs;
 
+void print_usage() {
+  std::cout << R"( Usage: sentinel [--config <config_file_path>] [off <target_file>]
+  Options: 
+    --config <config_file_path>  Specify the path to the configuration file. (default: /var/MM/setup.json)
+    off <target_file>            Disable alarm for the specified target file by updating its reference file.
+    -h, --help                   Show this help message.
+  )" << std::endl;
+}
+
 void save_alarm_status_map(std::string backupfile) {
   json j = json::object(); // 기본적으로 빈 JSON 객체 생성
 
@@ -350,6 +359,11 @@ void sentinel_process(const sentinel &s) {
 int main(int argc, char *argv[]) {
   try {
     std::string config_path = DEFAULT_CONFIG_PATH;
+    if (argc <= 1 || strcmp(argv[1], "-h") ==0 || strcmp(argv[1], "--help") ==0) {
+      print_usage();
+      return 0;
+    }
+
     if (argc > 2) {
       if (strcmp(argv[1], "--config") == 0)
         config_path = argv[2];
