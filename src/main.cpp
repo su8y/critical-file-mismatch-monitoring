@@ -20,7 +20,11 @@
 #include <spdlog/sinks/stdout_color_sinks.h>
 #include <spdlog/spdlog.h>
 
+#include "alarm_insert_client.h"
 #include "flatten_json_diff.hpp"
+/* alarm_insert_client */
+const char *ALARM_INSERT_SCRIPT_PATH = "/home/gis/alarm_insert/bin/alarmInsert";
+const char *FAILED_QUERY_FILE = "/home/gis/MM/failed_queries.log";
 
 const std::string DEFAULT_CONFIG_PATH = "/var/MM/setup.json";
 
@@ -45,7 +49,7 @@ NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(alarm_status, alarmId, alarmLevel,
 
 const std::string alarm_type = "F";
 const std::string alarm_severity_major = "MAJOR";
-const std::string alarm_severity_clear = "CLEAR";
+const std::string alarm_severity_clear = "CLEARED";
 std::string alarm_host_ip;
 std::string snmp_oss_address_1;
 std::string snmp_oss_address_2;
@@ -65,7 +69,8 @@ typedef struct sentinel {
 std::vector<sentinel> jobs;
 
 void print_usage() {
-  std::cout << R"( Usage: sentinel [--config <config_file_path>] [off <target_file>]
+  std::cout
+      << R"( Usage: sentinel [--config <config_file_path>] [off <target_file>]
   Options: 
     --config <config_file_path>  Specify the path to the configuration file. (default: /var/MM/setup.json)
     off <target_file>            Disable alarm for the specified target file by updating its reference file.
@@ -239,8 +244,35 @@ void check_new_alarm(const sentinel &s) {
   }
 }
 
+void trigger_alarm(const sentinel &s, const alarm_status &status,
+                   const std::string &prevAlarmId) {
+  // s.compare_trigger_msg "_"로 스플릿해서 그 뒤에 코드 추출
+  auto it = s.compare_trigger_msg.find_last_of('_');
+
+  if (it == std::string::npos) {
+    spdlog::error("Invalid compare_trigger_msg format: {}",
+                  s.compare_trigger_msg);
+    return;
+  }
+  std::string alarm_name = s.compare_trigger_msg.substr(0, it);
+  std::string alarm_code = s.compare_trigger_msg.substr(it + 1);
+  std::string insertAlarmMessage =
+      "ALARM " + alarm_code + " " + status.alarmLevel + " " + alarm_name + " " +
+      "ALARM(" + status.alarmLevel + "): " + status.alarmContent;
+
+  spdlog::debug("alarm tirggered: alarm_insert {} {} {} {} {} {} {} {} {}",
+                status.alarmId, alarm_code, alarm_name, status.alarmLevel,
+                server_hostname, alarm_host_ip, insertAlarmMessage,
+                prevAlarmId, CommonUtil::get_current_timestamp_str());
+  insertIntoPackAlarmInfo(
+      status.alarmId.c_str(), alarm_code.c_str(), alarm_name.c_str(),
+      status.alarmLevel.c_str(), server_hostname.c_str(), alarm_host_ip.c_str(),
+      insertAlarmMessage.c_str(), prevAlarmId.c_str(),
+      CommonUtil::get_current_timestamp_str().c_str());
+}
 void clear_alarm(const sentinel &s) {
   check_new_alarm(s);
+  std::string old_alarm_id = alarm_status_map[s.checkfile].alarmId;
 
   std::string new_alarm_id = create_alarm_id();
   spdlog::info("Alarm cleared for file: {}, prev: {}, current: {}", s.checkfile,
@@ -251,6 +283,7 @@ void clear_alarm(const sentinel &s) {
       .alarmLevel = alarm_severity_clear,
       .alarmContent = "",
   };
+  trigger_alarm(s, alarm_status_map[s.checkfile], old_alarm_id);
   save_alarm_status_map(ALARM_STATUS_FILE);
 }
 
@@ -258,31 +291,29 @@ void update_alarm(const sentinel &s, const std::string &diffResult) {
   check_new_alarm(s);
 
   if (alarm_status_map[s.checkfile].alarmLevel == alarm_severity_clear) {
-    std::string time = CommonUtil::get_current_timestamp_str();
-    std::string uuid = CommonUtil::generate_uuid_v4();
+    std::string new_alarm_id = create_alarm_id();
 
-    spdlog::warn("new alarm: {}, content: {}", uuid + "_" + time, diffResult);
     alarm_status_map[s.checkfile] = alarm_status{
-        .alarmId = uuid + "_" + time,
+        .alarmId = new_alarm_id,
         .alarmLevel = alarm_severity_major,
         .alarmContent = diffResult,
     };
+    trigger_alarm(s, alarm_status_map[s.checkfile], "0");
 
   } else if (alarm_status_map[s.checkfile].alarmLevel == alarm_severity_major &&
              alarm_status_map[s.checkfile].alarmContent != diffResult) {
     // 기존 알람이 있지만 내용이 다른 경우
-    std::string time = CommonUtil::get_current_timestamp_str();
-    std::string uuid = CommonUtil::generate_uuid_v4();
+    clear_alarm(s);
+    std::string new_alarm_id = create_alarm_id();
 
     // 알람 발생
-    spdlog::warn("update alarm: {} -> {}, content: {}",
-                 alarm_status_map[s.checkfile].alarmId, uuid + "_" + time,
-                 diffResult);
     alarm_status_map[s.checkfile] = alarm_status{
-        .alarmId = uuid + "_" + time,
+        .alarmId = new_alarm_id,
         .alarmLevel = alarm_severity_major,
         .alarmContent = diffResult,
     };
+
+    trigger_alarm(s, alarm_status_map[s.checkfile], "0");
   }
   save_alarm_status_map(ALARM_STATUS_FILE);
 }
@@ -359,7 +390,8 @@ void sentinel_process(const sentinel &s) {
 int main(int argc, char *argv[]) {
   try {
     std::string config_path = DEFAULT_CONFIG_PATH;
-    if (argc <= 1 || strcmp(argv[1], "-h") ==0 || strcmp(argv[1], "--help") ==0) {
+    if (argc <= 1 || strcmp(argv[1], "-h") == 0 ||
+        strcmp(argv[1], "--help") == 0) {
       print_usage();
       return 0;
     }
@@ -377,7 +409,7 @@ int main(int argc, char *argv[]) {
 
     if (argc > 4) {
       if (strcmp(argv[3], "off") == 0) {
-        for (int i = 0; i < jobs.size(); i++){
+        for (int i = 0; i < jobs.size(); i++) {
           if (jobs[i].checkfile == argv[4]) {
             std::ifstream src(jobs[i].checkfile);
             std::ofstream dst(jobs[i].reffile);
@@ -387,7 +419,6 @@ int main(int argc, char *argv[]) {
             exit(0);
           }
         }
-        
       }
     }
 

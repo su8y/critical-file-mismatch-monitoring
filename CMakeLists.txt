@@ -1,6 +1,6 @@
 # --- 1. CMake 최소 버전 및 프로젝트 설정 ---
 cmake_minimum_required(VERSION 3.2)  # 최신 FetchContent와 호환
-project(MismatchMonitor LANGUAGES CXX)
+project(MismatchMonitor LANGUAGES CXX C)
 
 # C++17 설정
 set(CMAKE_CXX_STANDARD 20)
