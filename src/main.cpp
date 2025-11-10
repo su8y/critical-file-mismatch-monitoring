@@ -73,7 +73,7 @@ void print_usage() {
       << R"( Usage: sentinel [--config <config_file_path>] [off <target_file>]
   Options: 
     --config <config_file_path>  Specify the path to the configuration file. (default: /var/MM/setup.json)
-    off <target_file>            Disable alarm for the specified target file by updating its reference file.
+    off <target_file>            Disable alarm for the specified reference file by updating its target file.
     -h, --help                   Show this help message.
   )" << std::endl;
 }
@@ -411,8 +411,8 @@ int main(int argc, char *argv[]) {
       if (strcmp(argv[3], "off") == 0) {
         for (int i = 0; i < jobs.size(); i++) {
           if (jobs[i].checkfile == argv[4]) {
-            std::ifstream src(jobs[i].checkfile);
-            std::ofstream dst(jobs[i].reffile);
+            std::ifstream src(jobs[i].reffile);
+            std::ofstream dst(jobs[i].checkfile);
             dst << src.rdbuf();
             src.close();
             dst.close();
