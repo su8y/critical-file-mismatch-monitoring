@@ -75,11 +75,11 @@ namespace FailedQueue {
 
 		// command 생성
 		std::string command = SNMP_TRAP_SCRIPT + " " + info.oss_addr + " " +
-			info.hostname + " " + info.code + " " + info.type +
-			" " + std::to_string(info.severity) + " " +
+			info.hostname + " " + info.code + " \"" + info.type + "\" " +
+			std::to_string(info.severity) + " " +
 			std::to_string(info.status) + " " +
-			std::to_string(info.value) + " " + info.message +
-			" " + info.registerDatetime;
+			std::to_string(info.value) + " \"" + info.message + "\" " +
+			 info.registerDatetime;
 
 		// command 실행 실패시 failed Query Queue에 적재
 		if (!executeCommand(command)) {
