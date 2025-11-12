@@ -1,0 +1,40 @@
+name: Bug report
+description: File a bug or unexpected behavior
+title: "[Bug]: "
+labels: [bug]
+assignees: []
+body:
+  - type: markdown
+    attributes:
+      value: |
+        ## Bug Report Guide
+        Please fill out the following sections clearly and completely.
+
+  - type: textarea
+    id: description
+    attributes:
+      label: Describe the bug
+      description: Describe the bug in detail.
+      placeholder: cExplain what’s going wrong.
+    validations:
+      required: true
+
+  - type: textarea
+    id: steps
+    attributes:
+      label: How to reproduce
+      description: Provide detailed steps to reproduce the issue.
+      placeholder: |
+        1. Setup environment...
+        2. Run command...
+        3. Observe output...
+    validations:
+      required: true
+
+  - type: textarea
+    attributes:
+      label: Additional context
+      placeholder: >
+        Any other context about the problem here.
+    validations:
+      required: false
