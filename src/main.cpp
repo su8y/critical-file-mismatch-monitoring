@@ -22,6 +22,7 @@
 
 #include "alarm_insert_client.h"
 #include "flatten_json_diff.hpp"
+#include "snmp_trap_client.hpp"
 /* alarm_insert_client */
 const char *ALARM_INSERT_SCRIPT_PATH = "/home/gis/alarm_insert/bin/alarmInsert";
 const char *FAILED_QUERY_FILE = "/home/gis/MM/failed_queries.log";
@@ -34,6 +35,11 @@ std::string server_logfile = "logs/app.out";
 std::map<std::string, nlohmann::json> checksum_status; // file-name
 
 /* Alarm Constant Properties */
+#define ALARM_MAJOR_INT_VALUE 2
+#define ALARM_NORMAL_INT_VALUE 5
+#define ALARM_OCCURRED_INT_VALUE 1
+#define ALARM_RELEASE 0
+
 #define META_FILE "/home/gis/config/meta_data.json"
 #define GOLDEN_FILE "/home/gis/config/Current_GoldenParameter.json"
 
@@ -272,6 +278,14 @@ void trigger_alarm(const sentinel &s, const alarm_status &status,
 							server_hostname.c_str(), alarm_host_ip.c_str(),
 							insertAlarmMessage.c_str(), prevAlarmId.c_str(),
 							CommonUtil::get_current_timestamp_str().c_str());
+	
+
+	int alarm_status = status.alarmLevel == alarm_severity_major ?  ALARM_OCCURRED_INT_VALUE: ALARM_RELEASE;
+	int alarmLevel_int_val = status.alarmLevel == alarm_severity_major ? ALARM_MAJOR_INT_VALUE : ALARM_NORMAL_INT_VALUE;
+	FailedQueue::trapSend({snmp_oss_address_1, server_hostname, alarm_code, alarm_name,
+			  alarmLevel_int_val, alarm_status, alarmLevel_int_val,
+			  status.alarmContent,
+			  CommonUtil::get_current_timestamp_str().c_str()});
 }
 void clear_alarm(const sentinel &s) {
 	check_new_alarm(s);

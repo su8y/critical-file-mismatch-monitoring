@@ -1,21 +1,15 @@
-## 프로젝트 구조
-To Be Updated
-
 ## 폴더 구조
 ```
 src/        
-├── config/                     # 환경구성 파일(ex: 전역변수, 상태, connection 초기화 등)
-│   └── gis_properties          # mis_mon 환경 구성
-├── application/                # 애플리케이션 로직
-│   └── mismatch_service        # mismatch 서비스
-├── infrastructure/             # 외부 
-│   └── jdbc_alarm_repository   # jdbc alarm 저장소
-│   └── snmp_alarm_client       # snmp alarm 클라이언트
-├── support/                    # 서포트 
-│   └── utils.hpp               # 유틸 함수
-└── mis_mon.cpp                 # bootstrap
+├── utils/                      # 서포트 기능
+│   └── CommonUtil.hpp          # 공통 기능
+│   └── FileUtil.h              # File 공통 기능
+├── alarm_insert_client.{h,cpp} # 알람 적재 클라이언트 (custom)
+├── snmp_trap_client.cpp        # snmp trap 클라이언트 (custom)
+├── md5sum_diff.hpp             # 체크섬 비교 
+├── flatten_json_diff.hpp       # Json 비교
+├── main.cpp                    # bootstrap
+└── CMakeList.txt               # package builder
 bin/        
-├── flatten_json_diff           # flatten_json_diff 실행 파일
-├── mis_mon_off                 #  
 └── mis_mon                     # mis_mon 실행 파일
 ```

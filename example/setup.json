@@ -3,7 +3,7 @@
     {
       "type": "checksum",
       "target": "./list.cfg",
-      "target_type": "file",
+      "target_type": "listfile",
       "target_reference": "./list_ref.cfg",
       "msg": "CRITICAL SYSTEM FILE CHANGED_A2800",
       "cron": "*/1 * * * *"
@@ -11,7 +11,7 @@
     {
       "type": "json",
       "target": "./file_1.json",
-      "target_type": "listfile",
+      "target_type": "file",
       "target_reference": "./file_1_ref.json",
       "msg": "GOLDEN PARAMETER MISMATCH_A2700",
       "cron": "*/1 * * * *"
