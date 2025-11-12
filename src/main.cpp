@@ -255,6 +255,7 @@ void check_new_alarm(const sentinel &s) {
 
 void trigger_alarm(const sentinel &s, const alarm_status &status,
 				   const std::string &prevAlarmId) {
+
 	// s.compare_trigger_msg "_"로 스플릿해서 그 뒤에 코드 추출
 	auto it = s.compare_trigger_msg.find_last_of('_');
 
@@ -278,15 +279,19 @@ void trigger_alarm(const sentinel &s, const alarm_status &status,
 							server_hostname.c_str(), alarm_host_ip.c_str(),
 							insertAlarmMessage.c_str(), prevAlarmId.c_str(),
 							CommonUtil::get_current_timestamp_str().c_str());
-	
 
-	int alarm_status = status.alarmLevel == alarm_severity_major ?  ALARM_OCCURRED_INT_VALUE: ALARM_RELEASE;
-	int alarmLevel_int_val = status.alarmLevel == alarm_severity_major ? ALARM_MAJOR_INT_VALUE : ALARM_NORMAL_INT_VALUE;
-	FailedQueue::trapSend({snmp_oss_address_1, server_hostname, alarm_code, alarm_name,
-			  alarmLevel_int_val, alarm_status, alarmLevel_int_val,
-			  status.alarmContent,
-			  CommonUtil::get_current_timestamp_str().c_str()});
+	int alarm_status = status.alarmLevel == alarm_severity_major
+							   ? ALARM_OCCURRED_INT_VALUE
+							   : ALARM_RELEASE;
+	int alarmLevel_int_val = status.alarmLevel == alarm_severity_major
+									 ? ALARM_MAJOR_INT_VALUE
+									 : ALARM_NORMAL_INT_VALUE;
+	FailedQueue::trapSend({snmp_oss_address_1, server_hostname, alarm_code,
+						   alarm_name, alarmLevel_int_val, alarm_status,
+						   alarmLevel_int_val, status.alarmContent,
+						   CommonUtil::get_current_timestamp_str().c_str()});
 }
+
 void clear_alarm(const sentinel &s) {
 	check_new_alarm(s);
 	std::string old_alarm_id = alarm_status_map[s.checkfile].alarmId;
@@ -442,6 +447,7 @@ int main(int argc, char *argv[]) {
 			}
 		}
 
+		// TODO: Cron 표현식에 따른 스케줄링 필요
 		while (true) {
 			for (int i = 0; i < jobs.size(); i++)
 				sentinel_process(jobs[i]);

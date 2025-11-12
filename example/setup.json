@@ -6,7 +6,7 @@
       "target_type": "listfile",
       "target_reference": "./list_ref.cfg",
       "msg": "CRITICAL SYSTEM FILE CHANGED_A2800",
-      "cron": "*/1 * * * *"
+      "cron": "* * * * *"
     },
     {
       "type": "json",
@@ -14,7 +14,7 @@
       "target_type": "file",
       "target_reference": "./file_1_ref.json",
       "msg": "GOLDEN PARAMETER MISMATCH_A2700",
-      "cron": "*/1 * * * *"
+      "cron": "0 0 * * *"
     }
   ]
 }

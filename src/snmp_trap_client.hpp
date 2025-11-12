@@ -12,7 +12,7 @@ struct snmp_trap_info {
 	std::string hostname;
 	std::string code; // A2700, A2800
 	std::string type; // MISMATCH, CRITICALFILE MISMATCH
-int severity;	  // MAJOR, CLEARED
+	int severity;	  // MAJOR, CLEARED
 	int status;		  // (RELEASE, CLEARED) 발생 알람인지 해제알람인지
 	int value;		  // MAJOR, CLEARED
 	std::string message;
