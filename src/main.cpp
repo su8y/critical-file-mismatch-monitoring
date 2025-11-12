@@ -60,24 +60,26 @@ typedef struct alarm_status {
 NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(alarm_status, alarmId, alarmLevel,
 		alarmContent)
 
-	const std::string alarm_type = "F";
-	const std::string alarm_severity_major = "MAJOR";
-	const std::string alarm_severity_clear = "CLEARED";
-	std::string alarm_host_ip;
-	std::string snmp_oss_address_1;
-	std::string snmp_oss_address_2;
+const std::string alarm_type = "F";
+const std::string alarm_severity_major = "MAJOR";
+const std::string alarm_severity_clear = "CLEARED";
+std::string alarm_server_type = "none"; // GISC or GISDB
 
-	std::map<std::string, alarm_status> alarm_status_map;
+std::string alarm_host_ip;
+std::string snmp_oss_address_1;
+std::string snmp_oss_address_2;
 
-	/* Sentinel Type*/
-	typedef struct sentinel {
-		std::string checkfile;
-		std::string reffile;
-		std::string file_type;	  // listfile or file
-		std::string compare_type; // checksum or json
-		std::string compare_trigger_msg;
-		std::string compare_time; // crontab
-	} sentinel;
+std::map<std::string, alarm_status> alarm_status_map;
+
+/* Sentinel Type*/
+typedef struct sentinel {
+	std::string checkfile;
+	std::string reffile;
+	std::string file_type;	  // listfile or file
+	std::string compare_type; // checksum or json
+	std::string compare_trigger_msg;
+	std::string compare_time; // crontab
+} sentinel;
 
 std::vector<sentinel> jobs;
 
@@ -142,7 +144,6 @@ void initAlarm(const std::string metafile, const std::string goldenfile) {
 		.at("SystemParameters")
 		.at("OSS_ADDR2")
 		.get_to(snmp_oss_address_2);
-	gf.close();
 
 	/* hostip */
 	if (server_hostname.empty()) {
@@ -156,6 +157,20 @@ void initAlarm(const std::string metafile, const std::string goldenfile) {
 		throw std::runtime_error("Failed to open file {}" + metafile);
 	meta >> meta_json;
 	meta_json.at(server_hostname).at("VMHost").get_to(alarm_host_ip);
+	std::string notes;
+	meta_json.at(server_hostname)
+		.at("Notes")
+		.get_to(notes);
+			
+	if (notes.find("GISC") != notes.npos) {
+		alarm_server_type = "GISC";
+	}else if(notes.find("GISDB") != notes.npos) {
+		alarm_server_type = "GISDB";
+	} else {
+		throw std::runtime_error("Invalid server type in golden file notes");
+	}
+		
+	gf.close();
 	meta.close();
 }
 
@@ -233,6 +248,20 @@ void initLogger(std::string application) {
 	spdlog::set_level(spdlog::level::debug); // trace, debug, info, warn, err,
 											 // critical, off
 	spdlog::flush_on(spdlog::level::info);
+}
+
+void initCriticalSystemFileList(std::string type) {
+	std::string criticalfile = "/home/gis/config/CriticalSystemFileList.cfg";
+	bool exsists = std::filesystem::exists(criticalfile);
+
+	if(exsists) return; 
+
+	if (type == "GISC") {
+		std::filesystem::copy("/home/gis/MM/resources/gisc.cfg",criticalfile);
+	} else  {
+		std::filesystem::copy("/home/gis/MM/resources/gisdb.cfg",criticalfile);
+	}
+
 }
 
 /* 모니터링 (checksum or json)*/
@@ -443,6 +472,7 @@ int main(int argc, char *argv[]) {
 		initLogger("sentinel");
 		initServer(config_path);
 		initAlarm(META_FILE, GOLDEN_FILE);
+		initCriticalSystemFileList(alarm_server_type);
 		load_alarm_status_map(ALARM_STATUS_FILE);
 		printInfo();
 
