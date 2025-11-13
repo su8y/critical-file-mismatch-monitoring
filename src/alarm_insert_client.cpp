@@ -8,7 +8,7 @@ static bool storeFailedQuery(const char *failedCommand) {
 
 	int fd = open(FAILED_QUERY_FILE, O_APPEND | O_CREAT | O_WRONLY, 0644);
 	if (fd == -1) {
-		spdlog::error("Failed open file descriptor: {}", strerror(errno));
+		spdlog::error("[ALARM::storeFailedQuery]Failed open file descriptor: {}", strerror(errno));
 		return false;
 	}
 

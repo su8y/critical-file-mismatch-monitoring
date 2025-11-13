@@ -10,13 +10,12 @@
 #include <spdlog/sinks/stdout_color_sinks.h>
 #include <spdlog/spdlog.h>
 
-
+#include <chrono>
 #include <fstream>
 #include <iostream>
 #include <memory>
 #include <string>
 #include <vector>
-#include <chrono>
 
 #ifdef _WIN32
 #include <winsock2.h>
@@ -28,7 +27,6 @@
 #include <sys/types.h>
 #include <unistd.h>
 #endif
-
 
 /* alarm_insert_client */
 const char *ALARM_INSERT_SCRIPT_PATH = "/home/gis/alarm_insert/bin/alarmInsert";
@@ -58,34 +56,33 @@ typedef struct alarm_status {
 } alarm_status;
 
 NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(alarm_status, alarmId, alarmLevel,
-		alarmContent)
+								   alarmContent)
 
-	const std::string alarm_type = "F";
-	const std::string alarm_severity_major = "MAJOR";
-	const std::string alarm_severity_clear = "CLEARED";
-	std::string alarm_server_type = "none"; // GISC or GISDB
+const std::string alarm_type = "F";
+const std::string alarm_severity_major = "MAJOR";
+const std::string alarm_severity_clear = "CLEARED";
+std::string alarm_server_type = "none"; // GISC or GISDB
 
-	std::string alarm_host_ip;
-	std::string snmp_oss_address_1;
-	std::string snmp_oss_address_2;
+std::string alarm_host_ip;
+std::string snmp_oss_address_1;
+std::string snmp_oss_address_2;
 
-	std::map<std::string, alarm_status> alarm_status_map;
+std::map<std::string, alarm_status> alarm_status_map;
 
-	/* Sentinel Type*/
-	typedef struct sentinel {
-		std::string checkfile;
-		std::string reffile;
-		std::string file_type;	  // listfile or file
-		std::string compare_type; // checksum or json
-		std::string compare_trigger_msg;
-		std::string compare_time; // crontab
-	} sentinel;
+/* Sentinel Type*/
+typedef struct sentinel {
+	std::string checkfile;
+	std::string reffile;
+	std::string file_type;	  // listfile or file
+	std::string compare_type; // checksum or json
+	std::string compare_trigger_msg;
+	std::string compare_time; // crontab
+} sentinel;
 
 std::vector<sentinel> jobs;
 
 void print_usage() {
-	std::cout
-		<< R"( Usage: mis_mon [-h | --help | off <target_file>]
+	std::cout << R"( Usage: mis_mon [-h | --help | off <target_file>]
   Options: 
     off <target_file>            Disable alarm for the specified reference file by updating its target file.
     -h, --help                   Show this help message.
@@ -97,13 +94,13 @@ void save_alarm_status_map(std::string backupfile) {
 
 	for (const auto &[key, value] : alarm_status_map)
 		j[key] = value; // NLOHMANN 매크로 덕분에 자동 직렬화
-	std::ofstream file(backupfile);
+	std::ofstream file(backupfile, std::ios::out);
 	file << j.dump(4);
 	file.close();
 }
 
 void load_alarm_status_map(const std::string &backupfile) {
-	std::ifstream file(backupfile);
+	std::ifstream file(backupfile, std::ios::out);
 	if (!file.is_open()) {
 		spdlog::error("Failed to open file {}", ALARM_STATUS_FILE);
 		return;
@@ -118,9 +115,9 @@ void load_alarm_status_map(const std::string &backupfile) {
 			alarm_status status = value.get<alarm_status>();
 			alarm_status_map[key] = status;
 			spdlog::debug("Load alarm[{}] -> alarmLevel: {}, alarmId: {}, "
-					"alarmContent: {}",
-					key, status.alarmLevel, status.alarmId,
-					status.alarmContent);
+						  "alarmContent: {}",
+						  key, status.alarmLevel, status.alarmId,
+						  status.alarmContent);
 		} catch (const std::exception &e) {
 			spdlog::error("Failed to parse alarm status file: {}", e.what());
 		}
@@ -136,13 +133,13 @@ void initAlarm(const std::string metafile, const std::string goldenfile) {
 		throw std::runtime_error("Failed to open file {}" + goldenfile);
 	gf >> gf_json;
 	gf_json.at("GIS")
-		.at("SystemParameters")
-		.at("OSS_ADDR")
-		.get_to(snmp_oss_address_1);
+			.at("SystemParameters")
+			.at("OSS_ADDR")
+			.get_to(snmp_oss_address_1);
 	gf_json.at("GIS")
-		.at("SystemParameters")
-		.at("OSS_ADDR2")
-		.get_to(snmp_oss_address_2);
+			.at("SystemParameters")
+			.at("OSS_ADDR2")
+			.get_to(snmp_oss_address_2);
 
 	/* hostip */
 	if (server_hostname.empty()) {
@@ -157,17 +154,14 @@ void initAlarm(const std::string metafile, const std::string goldenfile) {
 	meta >> meta_json;
 	meta_json.at(server_hostname).at("VMHost").get_to(alarm_host_ip);
 	std::string notes;
-	meta_json.at(server_hostname)
-		.at("Notes")
-		.get_to(notes);
+	meta_json.at(server_hostname).at("Notes").get_to(notes);
 
-	if (notes.find("GISC") != notes.npos) {
+	if (notes.find("GISC") != notes.npos)
 		alarm_server_type = "GISC";
-	}else if(notes.find("GISDB") != notes.npos) {
+	else if (notes.find("GISDB") != notes.npos)
 		alarm_server_type = "GISDB";
-	} else {
+	else
 		throw std::runtime_error("Invalid server type in golden file notes");
-	}
 
 	gf.close();
 	meta.close();
@@ -214,11 +208,11 @@ void initServer(const std::string configfile) {
 void printInfo() {
 	for (int i = 0; i < jobs.size(); i++) {
 		spdlog::info("jobs({}): {} {} {} {} {}", i, jobs[i].checkfile,
-				jobs[i].reffile, jobs[i].file_type, jobs[i].compare_type,
-				jobs[i].compare_time);
+					 jobs[i].reffile, jobs[i].file_type, jobs[i].compare_type,
+					 jobs[i].compare_time);
 	}
 	spdlog::info("Alarm: {} {} {} {}", alarm_type, alarm_severity_major,
-			alarm_severity_clear, alarm_host_ip);
+				 alarm_severity_clear, alarm_host_ip);
 	spdlog::info("Server: {}", server_hostname);
 }
 
@@ -232,14 +226,14 @@ void initLogger(std::string application) {
 			0, 0,			// 0시 0분마다 회전
 			false,			// 파일 압축하지 않음
 			7				// 최대 7일치 보관
-			);
+	);
 	file_sink->set_pattern("[%Y-%m-%d %H:%M:%S.%e] [%n] [%l] %v");
 	file_sink->set_level(spdlog::level::info);
 
 	// === 여러 sink 결합 ===
 	std::vector<spdlog::sink_ptr> sinks{console_sink, file_sink};
 	auto logger = std::make_shared<spdlog::logger>(application, sinks.begin(),
-			sinks.end());
+												   sinks.end());
 	spdlog::register_logger(logger);
 
 	// === 기본 설정 ===
@@ -253,14 +247,13 @@ void initCriticalSystemFileList(std::string type) {
 	std::string criticalfile = "/home/gis/config/CriticalSystemFileList.cfg";
 	bool exsists = std::filesystem::exists(criticalfile);
 
-	if(exsists) return; 
+	if (exsists)
+		return;
 
-	if (type == "GISC") {
-		std::filesystem::copy("/home/gis/MM/resources/gisc.cfg",criticalfile);
-	} else  {
-		std::filesystem::copy("/home/gis/MM/resources/gisdb.cfg",criticalfile);
-	}
-
+	if (type == "GISC")
+		std::filesystem::copy("/home/gis/MM/resources/gisc.cfg", criticalfile);
+	else
+		std::filesystem::copy("/home/gis/MM/resources/gisdb.cfg", criticalfile);
 }
 
 /* 모니터링 (checksum or json)*/
@@ -282,49 +275,49 @@ std::string create_alarm_id() {
 void check_new_alarm(const sentinel &s) {
 	if (alarm_status_map.count(s.checkfile) == 0) {
 		alarm_status_map[s.checkfile] =
-			alarm_status{.alarmId = "",
-				.alarmLevel = alarm_severity_clear,
-				.alarmContent = ""};
+				alarm_status{.alarmId = "",
+							 .alarmLevel = alarm_severity_clear,
+							 .alarmContent = ""};
 	}
 }
 
 void trigger_alarm(const sentinel &s, const alarm_status &status,
-		const std::string &prevAlarmId) {
+				   const std::string &prevAlarmId) {
 
 	// s.compare_trigger_msg "_"로 스플릿해서 그 뒤에 코드 추출
 	auto it = s.compare_trigger_msg.find_last_of('_');
 
 	if (it == std::string::npos) {
 		spdlog::error("Invalid compare_trigger_msg format: {}",
-				s.compare_trigger_msg);
+					  s.compare_trigger_msg);
 		return;
 	}
 	std::string alarm_name = s.compare_trigger_msg.substr(0, it);
 	std::string alarm_code = s.compare_trigger_msg.substr(it + 1);
 	std::string insertAlarmMessage =
-		"ALARM " + alarm_code + " " + status.alarmLevel + " " + alarm_name +
-		" " + "ALARM(" + status.alarmLevel + "): " + status.alarmContent;
+			"ALARM " + alarm_code + " " + status.alarmLevel + " " + alarm_name +
+			" " + "ALARM(" + status.alarmLevel + "): " + status.alarmContent;
 
 	spdlog::debug("alarm tirggered: alarm_insert {} {} {} {} {} {} {} {} {}",
-			status.alarmId, alarm_code, alarm_name, status.alarmLevel,
-			server_hostname, alarm_host_ip, insertAlarmMessage,
-			prevAlarmId, CommonUtil::get_current_timestamp_str());
+				  status.alarmId, alarm_code, alarm_name, status.alarmLevel,
+				  server_hostname, alarm_host_ip, insertAlarmMessage,
+				  prevAlarmId, CommonUtil::get_current_timestamp_str());
 	insertIntoPackAlarmInfo(status.alarmId.c_str(), alarm_code.c_str(),
-			alarm_name.c_str(), status.alarmLevel.c_str(),
-			server_hostname.c_str(), alarm_host_ip.c_str(),
-			insertAlarmMessage.c_str(), prevAlarmId.c_str(),
-			CommonUtil::get_current_timestamp_str().c_str());
+							alarm_name.c_str(), status.alarmLevel.c_str(),
+							server_hostname.c_str(), alarm_host_ip.c_str(),
+							insertAlarmMessage.c_str(), prevAlarmId.c_str(),
+							CommonUtil::get_current_timestamp_str().c_str());
 
 	int alarm_status = status.alarmLevel == alarm_severity_major
-		? ALARM_OCCURRED_INT_VALUE
-		: ALARM_RELEASE;
+							   ? ALARM_OCCURRED_INT_VALUE
+							   : ALARM_RELEASE;
 	int alarmLevel_int_val = status.alarmLevel == alarm_severity_major
-		? ALARM_MAJOR_INT_VALUE
-		: ALARM_NORMAL_INT_VALUE;
+									 ? ALARM_MAJOR_INT_VALUE
+									 : ALARM_NORMAL_INT_VALUE;
 	FailedQueue::trapSend({snmp_oss_address_1, server_hostname, alarm_code,
-			alarm_name, alarmLevel_int_val, alarm_status,
-			alarmLevel_int_val, status.alarmContent,
-			CommonUtil::get_current_timestamp_str().c_str()});
+						   alarm_name, alarmLevel_int_val, alarm_status,
+						   alarmLevel_int_val, status.alarmContent,
+						   CommonUtil::get_current_timestamp_str().c_str()});
 }
 
 void clear_alarm(const sentinel &s) {
@@ -333,11 +326,11 @@ void clear_alarm(const sentinel &s) {
 
 	std::string new_alarm_id = create_alarm_id();
 	spdlog::info("Alarm cleared for file: {}, prev: {}, current: {}",
-			s.checkfile, alarm_status_map[s.checkfile].alarmId,
-			new_alarm_id);
+				 s.checkfile, alarm_status_map[s.checkfile].alarmId,
+				 new_alarm_id);
 
 	alarm_status_map[s.checkfile] = alarm_status{
-		.alarmId = new_alarm_id,
+			.alarmId = new_alarm_id,
 			.alarmLevel = alarm_severity_clear,
 			.alarmContent = "",
 	};
@@ -348,26 +341,26 @@ void clear_alarm(const sentinel &s) {
 void update_alarm(const sentinel &s, const std::string &diffResult) {
 	check_new_alarm(s);
 
-	if (alarm_status_map[s.checkfile].alarmLevel == alarm_severity_clear) {
+	if (alarm_status_map[s.checkfile].alarmLevel == alarm_severity_clear || alarm_status_map[s.checkfile].alarmLevel.empty()) {
 		std::string new_alarm_id = create_alarm_id();
 
 		alarm_status_map[s.checkfile] = alarm_status{
-			.alarmId = new_alarm_id,
+				.alarmId = new_alarm_id,
 				.alarmLevel = alarm_severity_major,
 				.alarmContent = diffResult,
 		};
 		trigger_alarm(s, alarm_status_map[s.checkfile], "0");
 
 	} else if (alarm_status_map[s.checkfile].alarmLevel ==
-			alarm_severity_major &&
-			alarm_status_map[s.checkfile].alarmContent != diffResult) {
+					   alarm_severity_major &&
+			   alarm_status_map[s.checkfile].alarmContent != diffResult) {
 		// 기존 알람이 있지만 내용이 다른 경우
 		clear_alarm(s);
 		std::string new_alarm_id = create_alarm_id();
 
 		// 알람 발생
 		alarm_status_map[s.checkfile] = alarm_status{
-			.alarmId = new_alarm_id,
+				.alarmId = new_alarm_id,
 				.alarmLevel = alarm_severity_major,
 				.alarmContent = diffResult,
 		};
@@ -384,71 +377,92 @@ void sentinel_process(const sentinel &s) {
 		auto now = std::chrono::system_clock::now();
 		auto cron = cron::make_cron(s.compare_time);
 		auto next_time = cron::cron_next(cron, now);
-		spdlog::debug("Next check time for file {}", next_time );
 		std::this_thread::sleep_until(next_time);
 
-		if (s.file_type == "listfile") {
-			// FIXME: listfile off 지원 필요
-			if (s.compare_type == "json")
-				throw std::runtime_error("json type is not supported for listfile");
-			if (!std::filesystem::exists(s.reffile)) {
-				nlohmann::json j;
-				/* 기존 파일 읽어서 새로운 참조 파일 만들기 */
-				std::ifstream checkfile(s.checkfile);
-				std::string line;
-				while (std::getline(checkfile, line))
-					j[line] = get_md5sum(line);
-				checkfile.close();
-				std::ofstream ref_file_new(s.reffile);
-				ref_file_new << j.dump(4);
-				ref_file_new.close();
-				checksum_status[s.checkfile] = j;
-			}
-			if (checksum_status.count(s.checkfile) == 0) {
-				std::ifstream checkfile(s.reffile);
-				nlohmann::json j;
-				checkfile >> j;
-				checksum_status[s.checkfile] = j;
-			}
-			std::ifstream listfile(s.checkfile);
+		try {
 
-			if (!listfile.is_open())
-				spdlog::error("Failed to open file {}", s.checkfile);
-			std::string line;
-			std::stringstream output;
-			while (std::getline(listfile, line)) {
-				std::string md5sum = get_md5sum(line);
-				std::string prev_md5sum = checksum_status[s.checkfile][line];
-				if (md5sum != prev_md5sum) {
-					/* append diff result */
-					output << line << ":" << prev_md5sum << "->" << md5sum
-						<< std::endl;
+			if (s.file_type == "listfile") {
+				// FIXME: listfile off 지원 필요
+				if (s.compare_type == "json") {
+					throw std::runtime_error(
+							"json type is not supported for listfile");
+				}
+				if (!std::filesystem::exists(s.reffile)) {
+					nlohmann::json j;
+					/* 기존 파일 읽어서 새로운 참조 파일 만들기 */
+					std::ifstream checkfile(s.checkfile);
+					std::string line;
+					while (std::getline(checkfile, line)) {
+						if (!line.empty() && line.back() == '\r') 
+							line.pop_back();
+						j[line] = get_md5sum(line);
+					}
+					checkfile.close();
+					std::ofstream ref_file_new(s.reffile);
+					ref_file_new << j.dump(4);
+					ref_file_new.close();
+					checksum_status[s.checkfile] = j;
+				}
+				if (checksum_status.count(s.checkfile) == 0) {
+					std::ifstream checkfile(s.reffile);
+					nlohmann::json j;
+					checkfile >> j;
+					checksum_status[s.checkfile] = j;
+				}
+				std::ifstream listfile(s.checkfile);
+
+				if (!listfile.is_open())
+					spdlog::error("Failed to open file {}", s.checkfile);
+				std::string line;
+				std::stringstream output;
+				while (std::getline(listfile, line)) {
+					if(!line.empty() && line.back() == '\r') line.pop_back();
+					std::string md5sum = get_md5sum(line);
+					std::string prev_md5sum =
+							checksum_status[s.checkfile][line];
+					if (md5sum != prev_md5sum) {
+						/* append diff result */
+						output << line << ":" << prev_md5sum << "->" << md5sum
+							   << std::endl;
+					}
+				}
+
+				// 기 저장된 데이터가 없는 경우 새로 추가
+				if (alarm_status_map.count(s.checkfile) == 0) {
+					alarm_status_map[s.checkfile] =
+							alarm_status{.alarmId = "",
+										 .alarmLevel = alarm_severity_clear,
+										 .alarmContent = ""};
+				}
+
+				if (output.str().empty() &&
+					alarm_status_map[s.checkfile].alarmLevel ==
+							alarm_severity_major) {
+					clear_alarm(s);
+				} else if (!output.str().empty()) {
+					update_alarm(s, output.str());
+				}
+			} else if (s.file_type == "file") {
+				std::string diffResult = check_file(s);
+				spdlog::debug("prev level: {} ,file diffrent content: {}",alarm_status_map[s.checkfile].alarmLevel, diffResult);
+				/* 알람 발생 */
+				if (diffResult.empty() &&
+					alarm_status_map[s.checkfile].alarmLevel ==
+							alarm_severity_major) {
+					spdlog::debug("clear");
+					clear_alarm(s);
+				} else if (!diffResult.empty()) {
+					spdlog::debug("update");
+					update_alarm(s, diffResult);
+				} else {
+					spdlog::debug("no");
+					
 				}
 			}
 
-			// 기 저장된 데이터가 없는 경우 새로 추가
-			if (alarm_status_map.count(s.checkfile) == 0) {
-				alarm_status_map[s.checkfile] =
-					alarm_status{.alarmId = "",
-						.alarmLevel = alarm_severity_clear,
-						.alarmContent = ""};
-			}
-
-			if (output.str().empty() &&
-					alarm_status_map[s.checkfile].alarmLevel == alarm_severity_major) {
-				clear_alarm(s);
-			} else if (!output.str().empty()) {
-				update_alarm(s, output.str());
-			}
-		} else if (s.file_type == "file") {
-			std::string diffResult = check_file(s);
-			/* 알람 발생 */
-			if (diffResult.empty() &&
-					alarm_status_map[s.checkfile].alarmLevel == alarm_severity_major) {
-				clear_alarm(s);
-			} else if (!diffResult.empty()) {
-				update_alarm(s, diffResult);
-			}
+		} catch (const std::exception &e) {
+			spdlog::error("Error in sentinel_process for file {}: {}",
+						  s.checkfile, e.what());
 		}
 	}
 }
@@ -456,12 +470,11 @@ void sentinel_process(const sentinel &s) {
 int main(int argc, char *argv[]) {
 	try {
 		std::string config_path = DEFAULT_CONFIG_PATH;
-		if (argc == 2 && (strcmp(argv[1], "-h") == 0 || 
-					strcmp(argv[1], "--help") == 0)) {
+		if (argc == 2 &&
+			(strcmp(argv[1], "-h") == 0 || strcmp(argv[1], "--help") == 0)) {
 			print_usage();
 			return 0;
 		}
-
 
 		initLogger("sentinel");
 		initServer(config_path);
@@ -487,15 +500,14 @@ int main(int argc, char *argv[]) {
 
 		std::vector<std::thread> workers;
 
-		for (int i=0; i <jobs.size(); i++ ){
+		for (int i = 0; i < jobs.size(); i++)
 			workers.emplace_back(sentinel_process, jobs[i]);
-		}
 
-		for (auto &t: workers) {
+		for (auto &t : workers)
 			t.join();
-		}
+		spdlog::info("Sentinel process finished.");
 	} catch (const std::exception &e) {
-		std::cerr << "Critical Error: " << e.what() << std::endl;
+		spdlog::error("Critical Error: {}", e.what());
 		return 1;
 	}
 

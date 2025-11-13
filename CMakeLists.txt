@@ -1,10 +1,11 @@
-cmake_minimum_required(VERSION 3.25) 
+cmake_minimum_required(VERSION 3.20) 
 project(MismatchMonitor LANGUAGES CXX C)
 
 # C++20 설정
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
-set(CMAKE_CXX_EXTENSIONS OFF)
+set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -static-libgcc -static-libstdc++")
+# set(CMAKE_CXX_EXTENSIONS OFF)
 
 # --- 2. FetchContent 사용 설정 ---
 include(FetchContent)
