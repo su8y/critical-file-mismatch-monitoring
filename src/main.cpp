@@ -34,11 +34,11 @@
 const char *ALARM_INSERT_SCRIPT_PATH = "/home/gis/alarm_insert/bin/alarmInsert";
 const char *FAILED_QUERY_FILE = "/home/gis/MM/failed_queries.log";
 
-const std::string DEFAULT_CONFIG_PATH = "/var/MM/setup.json";
+const std::string DEFAULT_CONFIG_PATH = "/home/gis/MM/setup.json";
 
 /* Server Properties (require) */
 std::string server_hostname;
-std::string server_logfile = "logs/app.out";
+std::string server_logfile = "/home/gis/MM/logs/mis_mon.log";
 std::map<std::string, nlohmann::json> checksum_status; // file-name
 
 /* Alarm Constant Properties */
@@ -85,9 +85,8 @@ std::vector<sentinel> jobs;
 
 void print_usage() {
 	std::cout
-		<< R"( Usage: sentinel [--config <config_file_path>] [off <target_file>]
+		<< R"( Usage: mis_mon [-h | --help | off <target_file>]
   Options: 
-    --config <config_file_path>  Specify the path to the configuration file. (default: /var/MM/setup.json)
     off <target_file>            Disable alarm for the specified reference file by updating its target file.
     -h, --help                   Show this help message.
   )" << std::endl;
@@ -457,17 +456,12 @@ void sentinel_process(const sentinel &s) {
 int main(int argc, char *argv[]) {
 	try {
 		std::string config_path = DEFAULT_CONFIG_PATH;
-		if (argc <= 1 || strcmp(argv[1], "-h") == 0 ||
-				strcmp(argv[1], "--help") == 0) {
+		if (argc == 2 && (strcmp(argv[1], "-h") == 0 || 
+				strcmp(argv[1], "--help") == 0)) {
 			print_usage();
 			return 0;
 		}
 
-		if (argc > 2) {
-			if (strcmp(argv[1], "--config") == 0)
-				config_path = argv[2];
-		}
-		
 
 		initLogger("sentinel");
 		initServer(config_path);
@@ -476,10 +470,10 @@ int main(int argc, char *argv[]) {
 		load_alarm_status_map(ALARM_STATUS_FILE);
 		printInfo();
 
-		if (argc > 4) {
-			if (strcmp(argv[3], "off") == 0) {
+		if (argc >= 3) {
+			if (strcmp(argv[1], "off") == 0) {
 				for (int i = 0; i < jobs.size(); i++) {
-					if (jobs[i].checkfile == argv[4]) {
+					if (jobs[i].checkfile == argv[2]) {
 						std::ifstream src(jobs[i].reffile);
 						std::ofstream dst(jobs[i].checkfile);
 						dst << src.rdbuf();
