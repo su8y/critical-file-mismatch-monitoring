@@ -1,10 +1,6 @@
 #ifndef ALARM_INSERT_CLIENT_H
 #define ALARM_INSERT_CLIENT_H
 
-#ifdef __cplusplus
-extern "C" {
-#endif
-
 #include <errno.h>
 #include <fcntl.h>
 #include <stdbool.h>
@@ -31,7 +27,4 @@ bool insertIntoPackAlarmInfo(const char *index, const char *code,
 
 bool retryFailedQueries();
 
-#ifdef __cplusplus
-}
-#endif
 #endif

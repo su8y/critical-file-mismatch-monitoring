@@ -31,6 +31,7 @@ namespace FailedQueue {
 			return false;
 		}
 		outfile << command << std::endl;
+		return true;
 	}
 
 

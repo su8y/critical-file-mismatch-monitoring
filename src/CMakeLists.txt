@@ -1,5 +1,5 @@
 add_executable(mis_mon main.cpp
-        alarm_insert_client.c
+        alarm_insert_client.cpp
 )
 
 target_link_libraries(mis_mon PRIVATE

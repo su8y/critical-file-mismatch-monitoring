@@ -1,9 +1,9 @@
-#include "md5sum_diff.hpp"
-#include "utils/CommonUtil.hpp"
-#include "croncpp.h"
 #include "alarm_insert_client.h"
+#include "croncpp.h"
 #include "flatten_json_diff.hpp"
+#include "md5sum_diff.hpp"
 #include "snmp_trap_client.hpp"
+#include "utils/CommonUtil.hpp"
 
 #include <nlohmann/json.hpp>
 #include <spdlog/sinks/daily_file_sink.h>
@@ -60,26 +60,26 @@ typedef struct alarm_status {
 NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(alarm_status, alarmId, alarmLevel,
 		alarmContent)
 
-const std::string alarm_type = "F";
-const std::string alarm_severity_major = "MAJOR";
-const std::string alarm_severity_clear = "CLEARED";
-std::string alarm_server_type = "none"; // GISC or GISDB
+	const std::string alarm_type = "F";
+	const std::string alarm_severity_major = "MAJOR";
+	const std::string alarm_severity_clear = "CLEARED";
+	std::string alarm_server_type = "none"; // GISC or GISDB
 
-std::string alarm_host_ip;
-std::string snmp_oss_address_1;
-std::string snmp_oss_address_2;
+	std::string alarm_host_ip;
+	std::string snmp_oss_address_1;
+	std::string snmp_oss_address_2;
 
-std::map<std::string, alarm_status> alarm_status_map;
+	std::map<std::string, alarm_status> alarm_status_map;
 
-/* Sentinel Type*/
-typedef struct sentinel {
-	std::string checkfile;
-	std::string reffile;
-	std::string file_type;	  // listfile or file
-	std::string compare_type; // checksum or json
-	std::string compare_trigger_msg;
-	std::string compare_time; // crontab
-} sentinel;
+	/* Sentinel Type*/
+	typedef struct sentinel {
+		std::string checkfile;
+		std::string reffile;
+		std::string file_type;	  // listfile or file
+		std::string compare_type; // checksum or json
+		std::string compare_trigger_msg;
+		std::string compare_time; // crontab
+	} sentinel;
 
 std::vector<sentinel> jobs;
 
@@ -160,7 +160,7 @@ void initAlarm(const std::string metafile, const std::string goldenfile) {
 	meta_json.at(server_hostname)
 		.at("Notes")
 		.get_to(notes);
-			
+
 	if (notes.find("GISC") != notes.npos) {
 		alarm_server_type = "GISC";
 	}else if(notes.find("GISDB") != notes.npos) {
@@ -168,7 +168,7 @@ void initAlarm(const std::string metafile, const std::string goldenfile) {
 	} else {
 		throw std::runtime_error("Invalid server type in golden file notes");
 	}
-		
+
 	gf.close();
 	meta.close();
 }
@@ -457,7 +457,7 @@ int main(int argc, char *argv[]) {
 	try {
 		std::string config_path = DEFAULT_CONFIG_PATH;
 		if (argc == 2 && (strcmp(argv[1], "-h") == 0 || 
-				strcmp(argv[1], "--help") == 0)) {
+					strcmp(argv[1], "--help") == 0)) {
 			print_usage();
 			return 0;
 		}
